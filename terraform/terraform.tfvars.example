@@ -4,15 +4,16 @@ fingerprint      = "aa:bb:cc:dd:ee:ff:00:11:22:33:44:55:66:77:88:99"
 private_key_path = "~/.oci/oci_api_key.pem"
 region           = "sa-saopaulo-1"
 
-ssh_public_key   = "ssh-ed25519 AAAAC3NzaC1... voce@maquina"
+ssh_public_key   = "ssh-ed25519 AAAAC3NzaC1... you@machine"
 allowed_ssh_cidr = "0.0.0.0/0"
 
-motd        = "Servidor dos amigos"
+motd        = "Paper server on Oracle Cloud"
 difficulty  = "normal"
 max_players = 20
 java_memory = "12G"
+timezone    = "America/Sao_Paulo"
 
 ops       = ""
 whitelist = ""
 
-rcon_password = "troque-esta-senha"
+rcon_password = "change-this-password"

@@ -28,7 +28,7 @@ write_files:
             VERSION: "${minecraft_version}"
             MEMORY: "${java_memory}"
             USE_AIKAR_FLAGS: "true"
-            TZ: "America/Sao_Paulo"
+            TZ: "${timezone}"
             MOTD: "${motd}"
             DIFFICULTY: "${difficulty}"
             MAX_PLAYERS: "${max_players}"
@@ -58,7 +58,7 @@ write_files:
             PRUNE_BACKUPS_DAYS: "7"
             RCON_HOST: "mc"
             RCON_PASSWORD: "${rcon_password}"
-            TZ: "America/Sao_Paulo"
+            TZ: "${timezone}"
           volumes:
             - ./data:/data:ro
             - ./backups:/backups
@@ -83,4 +83,4 @@ runcmd:
   - chown -R ubuntu:ubuntu /opt/minecraft
   - docker compose -f /opt/minecraft/docker-compose.yml up -d
 
-final_message: "Provisionamento concluido em $UPTIME s."
+final_message: "Provisioning finished after $UPTIME seconds."

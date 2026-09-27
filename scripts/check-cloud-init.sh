@@ -3,7 +3,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/../terraform"
 
-EXPR='templatefile("${path.module}/templates/cloud-init.yaml.tftpl", {minecraft_port=25565, minecraft_version="LATEST", java_memory="12G", motd="ci", difficulty="normal", max_players=20, ops="", whitelist="", enforce_whitelist="false", rcon_password="ci"})'
+EXPR='templatefile("${path.module}/templates/cloud-init.yaml.tftpl", {minecraft_port=25565, minecraft_version="LATEST", java_memory="12G", motd="ci", difficulty="normal", max_players=20, ops="", whitelist="", enforce_whitelist="false", timezone="UTC", rcon_password="ci"})'
 
 terraform init -backend=false -input=false >/dev/null
 
@@ -20,9 +20,9 @@ import yaml
 doc = yaml.safe_load(open("/tmp/cloud-init.rendered.yaml"))
 compose = yaml.safe_load(doc["write_files"][0]["content"])
 
-assert "runcmd" in doc, "runcmd ausente no cloud-init"
+assert "runcmd" in doc, "cloud-init has no runcmd section"
 assert set(compose["services"]) == {"mc", "backup"}, compose["services"]
 assert compose["services"]["mc"]["environment"]["TYPE"] == "PAPER"
 
-print("cloud-init e docker-compose validos")
+print("cloud-init and docker-compose render as valid YAML")
 PY

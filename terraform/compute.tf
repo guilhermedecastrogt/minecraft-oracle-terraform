@@ -55,6 +55,7 @@ resource "oci_core_instance" "mc" {
       motd              = var.motd
       difficulty        = var.difficulty
       max_players       = var.max_players
+      timezone          = var.timezone
       ops               = var.ops
       whitelist         = var.whitelist
       enforce_whitelist = var.whitelist != "" ? "true" : "false"

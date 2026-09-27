@@ -1,139 +1,145 @@
 variable "tenancy_ocid" {
-  description = "OCID da tenancy (conta raiz) da Oracle Cloud."
+  description = "OCID of the Oracle Cloud tenancy (root account)."
   type        = string
 }
 
 variable "user_ocid" {
-  description = "OCID do usuário dono da API key."
+  description = "OCID of the user that owns the API key."
   type        = string
 }
 
 variable "fingerprint" {
-  description = "Fingerprint da API key cadastrada na console."
+  description = "Fingerprint of the API key registered in the OCI console."
   type        = string
 }
 
 variable "private_key_path" {
-  description = "Caminho local da chave privada .pem da API key."
+  description = "Local path to the API key's .pem private key."
   type        = string
   default     = "~/.oci/oci_api_key.pem"
 }
 
 variable "region" {
-  description = "Região OCI onde o servidor sobe (ex.: sa-saopaulo-1, sa-vinhedo-1)."
+  description = "OCI region to deploy into (e.g. sa-saopaulo-1, us-ashburn-1)."
   type        = string
   default     = "sa-saopaulo-1"
 }
 
 variable "compartment_ocid" {
-  description = "OCID do compartment. Vazio usa a própria tenancy (raiz)."
+  description = "Compartment OCID. Leave empty to use the tenancy root."
   type        = string
   default     = ""
 }
 
 variable "ssh_public_key" {
-  description = "Conteúdo da chave pública SSH que terá acesso à VM."
+  description = "Contents of the SSH public key granted access to the VM."
   type        = string
 }
 
 variable "allowed_ssh_cidr" {
-  description = "Faixa de IPs liberada para SSH. Prefira SEU_IP/32 a 0.0.0.0/0."
+  description = "CIDR range allowed to reach SSH. Prefer YOUR_IP/32 over 0.0.0.0/0."
   type        = string
   default     = "0.0.0.0/0"
 }
 
 variable "instance_name" {
-  description = "Nome da VM na console da Oracle."
+  description = "VM display name in the Oracle console."
   type        = string
   default     = "minecraft-paper"
 }
 
 variable "instance_ocpus" {
-  description = "Núcleos ARM (Ampere A1). Teto do Always Free: 4."
+  description = "ARM cores (Ampere A1). Always Free cap: 4."
   type        = number
   default     = 4
 }
 
 variable "instance_memory_gb" {
-  description = "RAM em GB. Teto do Always Free: 24."
+  description = "Memory in GB. Always Free cap: 24."
   type        = number
   default     = 24
 }
 
 variable "boot_volume_gb" {
-  description = "Disco em GB. Always Free dá 200 GB no total; mínimo por VM é 50."
+  description = "Disk size in GB. Always Free grants 200 GB total; minimum per VM is 50."
   type        = number
   default     = 100
 }
 
 variable "ubuntu_version" {
-  description = "Versão do Ubuntu usada como imagem base."
+  description = "Ubuntu release used as the base image."
   type        = string
   default     = "24.04"
 }
 
 variable "availability_domain_index" {
-  description = "Availability domain a usar (0, 1, 2...). Troque se der 'Out of host capacity'."
+  description = "Availability domain to use (0, 1, 2...). Only meaningful in multi-AD regions."
   type        = number
   default     = 0
 }
 
 variable "minecraft_port" {
-  description = "Porta do servidor Java Edition."
+  description = "Java Edition server port."
   type        = number
   default     = 25565
 }
 
 variable "minecraft_version" {
-  description = "Versão do Minecraft. LATEST pega a mais recente suportada pelo Paper."
+  description = "Minecraft version. LATEST resolves to the newest release Paper supports."
   type        = string
   default     = "LATEST"
 }
 
 variable "java_memory" {
-  description = "Heap da JVM. Deixe folga para o SO e o Docker."
+  description = "JVM heap size. Leave headroom for the OS and Docker."
   type        = string
   default     = "12G"
 }
 
 variable "motd" {
-  description = "Mensagem exibida na lista de servidores do cliente."
+  description = "Message shown in the client's server list."
   type        = string
-  default     = "Servidor dos amigos - Paper"
+  default     = "Paper server on Oracle Cloud"
 }
 
 variable "difficulty" {
-  description = "Dificuldade do mundo: peaceful, easy, normal ou hard."
+  description = "World difficulty: peaceful, easy, normal or hard."
   type        = string
   default     = "normal"
 
   validation {
     condition     = contains(["peaceful", "easy", "normal", "hard"], var.difficulty)
-    error_message = "Use peaceful, easy, normal ou hard."
+    error_message = "Must be one of: peaceful, easy, normal, hard."
   }
 }
 
 variable "max_players" {
-  description = "Limite de jogadores simultâneos."
+  description = "Maximum number of concurrent players."
   type        = number
   default     = 20
 }
 
 variable "ops" {
-  description = "Nicks separados por vírgula que viram operadores do servidor."
+  description = "Comma-separated usernames granted operator rights."
   type        = string
   default     = ""
 }
 
 variable "whitelist" {
-  description = "Nicks separados por vírgula liberados a entrar. Vazio deixa o servidor aberto."
+  description = "Comma-separated usernames allowed to join. Empty leaves the server open."
   type        = string
   default     = ""
 }
 
-variable "rcon_password" {
-  description = "Senha do RCON. Usada só dentro da rede interna do Docker."
+variable "timezone" {
+  description = "Timezone used by the containers for logs and backup scheduling."
   type        = string
-  default     = "troque-esta-senha"
+  default     = "America/Sao_Paulo"
+}
+
+variable "rcon_password" {
+  description = "RCON password. Only reachable from inside the Docker network."
+  type        = string
+  default     = "change-this-password"
   sensitive   = true
 }

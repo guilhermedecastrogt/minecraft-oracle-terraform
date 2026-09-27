@@ -46,5 +46,5 @@ jobs:
           terraform_version: 1.16.2
           terraform_wrapper: false
 
-      - name: render and parse cloud-init
+      - name: render and lint cloud-init
         run: ./scripts/check-cloud-init.sh

@@ -1,81 +1,81 @@
-# Minecraft na Oracle Cloud com Terraform
+# Minecraft on Oracle Cloud with Terraform
 
 [![terraform](https://github.com/guilhermedecastrogt/minecraft-oracle-terraform/actions/workflows/terraform.yml/badge.svg)](https://github.com/guilhermedecastrogt/minecraft-oracle-terraform/actions/workflows/terraform.yml)
 
-Infraestrutura como código para subir um servidor **Paper** numa VM ARM do
-tier **Always Free** da Oracle Cloud. Um `terraform apply` cria a rede, o
-firewall e a máquina, instala o Docker e deixa o servidor no ar — sem nenhum
-passo manual depois.
+Infrastructure as code for running a **Paper** Minecraft server on an ARM VM in
+Oracle Cloud's **Always Free** tier. A single `terraform apply` creates the
+network, the firewall rules and the machine, installs Docker and brings the
+server online — no manual steps afterwards.
 
-Projeto de estudo: o objetivo é ter um servidor de verdade para jogar com os
-amigos e, no caminho, encostar em VCN, security lists, cloud-init, imagens
-ARM, Docker Compose e CI.
+This is a learning project: the goal is a real server to play on with friends
+and, along the way, hands-on exposure to VCNs, security lists, cloud-init, ARM
+images, Docker Compose and CI.
 
 ```
 terraform apply
       │
       ▼
- Oracle Cloud (região sa-saopaulo-1)
+ Oracle Cloud (sa-saopaulo-1)
       │
       ├── VCN 10.0.0.0/16
       │     ├── Internet Gateway
       │     ├── Route Table        0.0.0.0/0 → IGW
-      │     ├── Security List      :22 (seu IP) · :25565 (mundo) · ICMP
-      │     └── Subnet 10.0.1.0/24 (pública)
+      │     ├── Security List      :22 (your IP) · :25565 (world) · ICMP
+      │     └── Subnet 10.0.1.0/24 (public)
       │
-      └── VM  VM.Standard.A1.Flex · 4 OCPU ARM · 24 GB · Ubuntu 24.04
+      └── VM  VM.Standard.A1.Flex · 4 ARM OCPUs · 24 GB · Ubuntu 24.04
             │
-            └── cloud-init (primeiro boot)
-                  ├── instala Docker
-                  ├── abre a 25565 no iptables interno
+            └── cloud-init (first boot)
+                  ├── installs Docker
+                  ├── opens 25565 in the in-VM iptables
                   └── docker compose up
                         ├── itzg/minecraft-server  →  Paper + Aikar flags
-                        └── itzg/mc-backup         →  snapshot a cada 6 h
+                        └── itzg/mc-backup         →  snapshot every 6 h
 ```
 
-**Custo: R$ 0** dentro do Always Free — 4 OCPUs ARM, 24 GB de RAM e 200 GB de
-disco, sem prazo para expirar. O projeto usa exatamente esse teto.
+**Cost: $0** within Always Free — 4 ARM OCPUs, 24 GB of RAM and 200 GB of disk,
+with no expiry date. This project uses exactly that budget.
 
 ---
 
-## Estrutura
+## Layout
 
 ```
 .
-├── .github/workflows/terraform.yml   CI: fmt, validate e lint do cloud-init
+├── .github/workflows/terraform.yml   CI: fmt, validate and cloud-init lint
 ├── scripts/
-│   ├── check-cloud-init.sh           renderiza o template e valida o YAML
-│   └── apply-retry.sh                reaplica até haver capacidade ARM livre
+│   ├── check-cloud-init.sh           renders the template and validates the YAML
+│   └── apply-retry.sh                reapplies until ARM capacity frees up
 └── terraform/
-    ├── versions.tf                   versões do Terraform e do provider
-    ├── providers.tf                  autenticação na OCI
-    ├── variables.tf                  toda a configuração exposta
+    ├── versions.tf                   Terraform and provider constraints
+    ├── providers.tf                  OCI authentication
+    ├── variables.tf                  every knob the project exposes
     ├── network.tf                    VCN, IGW, route table, security list, subnet
-    ├── compute.tf                    imagem Ubuntu ARM + instância A1.Flex
-    ├── outputs.tf                    IP e comandos prontos ao fim do apply
+    ├── compute.tf                    Ubuntu ARM image lookup + A1.Flex instance
+    ├── outputs.tf                    IP and ready-to-run commands after apply
     ├── templates/
-    │   └── cloud-init.yaml.tftpl     o que roda no primeiro boot da VM
+    │   └── cloud-init.yaml.tftpl     what runs on the VM's first boot
     └── terraform.tfvars.example
 ```
 
-## Pré-requisitos
+## Requirements
 
-| O quê | Como conseguir |
+| What | How to get it |
 |---|---|
-| Conta Oracle Cloud | [cloud.oracle.com](https://cloud.oracle.com) — pede cartão, mas recursos Always Free não geram cobrança |
+| Oracle Cloud account | [cloud.oracle.com](https://cloud.oracle.com) — a card is required, but Always Free resources are not billed |
 | Terraform ≥ 1.5 | `brew install terraform` |
-| Par de chaves SSH | `ssh-keygen -t ed25519 -C "minecraft"` |
-| API Key da OCI | Console → perfil → **My profile** → **API keys** → **Add API key** |
+| SSH key pair | `ssh-keygen -t ed25519 -C "minecraft"` |
+| OCI API key | Console → profile → **My profile** → **API keys** → **Add API key** |
 
-Ao criar a API key a Oracle exibe um **Configuration file preview**. É de lá
-que saem `tenancy_ocid`, `user_ocid`, `fingerprint` e `region`. Baixe a chave
-privada, salve em `~/.oci/oci_api_key.pem` e rode `chmod 600` nela.
+Creating the API key opens a **Configuration file preview**. That is where
+`tenancy_ocid`, `user_ocid`, `fingerprint` and `region` come from. Download the
+private key, save it as `~/.oci/oci_api_key.pem` and `chmod 600` it.
 
-> Se puder, faça o upgrade da conta para **Pay As You Go**. Contas em *trial*
-> quase sempre esbarram em `Out of host capacity` ao pedir ARM. Continua tudo
-> gratuito enquanto você ficar dentro dos limites do Always Free.
+> Upgrade the account to **Pay As You Go** if you can. Trial accounts almost
+> always hit `Out of host capacity` when requesting ARM. Everything stays free
+> as long as you remain within the Always Free limits.
 
-## Subindo
+## Deploying
 
 ```bash
 cd terraform
@@ -87,183 +87,184 @@ terraform plan
 terraform apply
 ```
 
-No `terraform.tfvars`, além das credenciais, vale ajustar:
+Beyond the credentials, these are the settings worth reviewing:
 
-| Variável | Padrão | Para quê |
+| Variable | Default | Why you'd change it |
 |---|---|---|
-| `allowed_ssh_cidr` | `0.0.0.0/0` | descubra seu IP com `curl ifconfig.me` e use `SEU_IP/32` |
-| `ops` | vazio | nicks que viram operadores (`SeuNick,NickDoAmigo`) |
-| `whitelist` | vazio | preencher liga a whitelist automaticamente |
-| `java_memory` | `12G` | heap da JVM; deixe folga para SO e Docker |
-| `difficulty` / `max_players` / `motd` | `normal` / `20` / — | ajustes do jogo |
-| `availability_domain_index` | `0` | só útil em regiões com mais de um AD (São Paulo tem apenas um) |
+| `allowed_ssh_cidr` | `0.0.0.0/0` | find your IP with `curl ifconfig.me` and set `YOUR_IP/32` |
+| `ops` | empty | usernames granted operator rights (`You,AFriend`) |
+| `whitelist` | empty | filling it in enables whitelist enforcement automatically |
+| `java_memory` | `12G` | JVM heap; leave headroom for the OS and Docker |
+| `difficulty` / `max_players` / `motd` | `normal` / `20` / — | gameplay settings |
+| `timezone` | `America/Sao_Paulo` | affects container logs and backup scheduling |
 
-Ao fim do apply:
+After the apply:
 
 ```
 server_address = "150.230.x.x:25565"
 ssh            = "ssh ubuntu@150.230.x.x"
 ```
 
-A VM nasce em cerca de um minuto, mas o cloud-init ainda precisa instalar o
-Docker e baixar o Paper — **de 3 a 6 minutos no total**. Para acompanhar:
+The VM boots in about a minute, but cloud-init still has to install Docker and
+download Paper — **3 to 6 minutes end to end**. To follow along:
 
 ```bash
-ssh ubuntu@<IP> 'sudo tail -f /var/log/cloud-init-output.log'   # provisionamento
-ssh ubuntu@<IP> 'docker logs -f minecraft'                      # servidor
+ssh ubuntu@<IP> 'sudo tail -f /var/log/cloud-init-output.log'   # provisioning
+ssh ubuntu@<IP> 'docker logs -f minecraft'                      # the server
 ```
 
-Quando aparecer `Done (x.xxxs)! For help, type "help"`, cole o `server_address`
-no Minecraft em **Multiplayer → Add Server**.
+Once `Done (x.xxxs)! For help, type "help"` shows up, paste `server_address`
+into Minecraft under **Multiplayer → Add Server**.
 
-## Operando o servidor
+## Running the server
 
-Entre com `ssh ubuntu@<IP>`. Os atalhos já vêm carregados no shell:
+Log in with `ssh ubuntu@<IP>`. These aliases are already in the shell:
 
 ```bash
-mc-logs        # logs ao vivo
-mc-console     # console do Paper via RCON
-mc-restart     # reinicia o container
-mc-up          # sobe o compose
-mc-down        # derruba o compose
+mc-logs        # follow the logs
+mc-console     # Paper console over RCON
+mc-restart     # restart the container
+mc-up          # bring the compose stack up
+mc-down        # tear it down
 ```
 
-Dentro do `mc-console`:
+Inside `mc-console`:
 
 ```
 list
-op SeuNick
-whitelist add NickDoAmigo
-say ola pessoal
+op YourName
+whitelist add AFriend
+say hello
 stop
 ```
 
-Onde ficam as coisas na VM:
+Where things live on the VM:
 
-| Caminho | Conteúdo |
+| Path | Contents |
 |---|---|
-| `/opt/minecraft/docker-compose.yml` | definição dos containers |
-| `/opt/minecraft/data/` | mundo, `server.properties`, `plugins/`, logs |
-| `/opt/minecraft/backups/` | backups automáticos (a cada 6 h, retenção de 7 dias) |
+| `/opt/minecraft/docker-compose.yml` | container definitions |
+| `/opt/minecraft/data/` | world, `server.properties`, `plugins/`, logs |
+| `/opt/minecraft/backups/` | automatic backups (every 6 h, 7-day retention) |
 
-**Instalar um plugin:**
+**Installing a plugin:**
 
 ```bash
 scp EssentialsX.jar ubuntu@<IP>:/opt/minecraft/data/plugins/
 ssh ubuntu@<IP> 'docker restart minecraft'
 ```
 
-**Baixar um backup:**
+**Downloading a backup:**
 
 ```bash
 scp ubuntu@<IP>:/opt/minecraft/backups/*.tgz .
 ```
 
-**Destruir tudo** (o mundo vai junto — baixe os backups antes):
+**Tearing everything down** (the world goes with it — grab the backups first):
 
 ```bash
 terraform destroy
 ```
 
-## Como as peças se encaixam
+## How the pieces fit together
 
-Três coisas que costumam pegar quem está começando:
+Three things that tend to trip people up:
 
-**Existem dois firewalls, e os dois precisam liberar a porta.** A *security
-list* da OCI filtra o pacote antes dele chegar na VM. O *iptables* de dentro do
-Ubuntu filtra depois — e a imagem Ubuntu da Oracle já vem bloqueando tudo menos
-SSH. Por isso o cloud-init abre a 25565 lá dentro também. Lembrar de um e
-esquecer o outro é a causa número um de "o servidor subiu mas ninguém conecta".
+**There are two firewalls, and both must allow the port.** The OCI *security
+list* filters packets before they reach the VM. The *iptables* rules inside
+Ubuntu filter them afterwards — and Oracle's Ubuntu image ships blocking
+everything except SSH. That is why cloud-init also opens 25565 from the inside.
+Remembering one and forgetting the other is the number one cause of "the server
+is up but nobody can connect".
 
-**O cloud-init roda uma única vez.** Ele é entregue como `user_data` no
-nascimento da VM. Alterar o template e rodar `apply` de novo **recria a
-máquina** — e o mundo se perde. Para mudanças do dia a dia, edite direto na VM:
+**cloud-init runs exactly once.** It is handed to the VM as `user_data` at
+birth. Editing the template and applying again **recreates the machine**, and
+the world goes with it. For day-to-day changes, edit on the VM instead:
 
 ```bash
 sudo nano /opt/minecraft/docker-compose.yml
 docker compose -f /opt/minecraft/docker-compose.yml up -d
 ```
 
-Na prática: o Terraform é a fonte da verdade da **infraestrutura**; a partir do
-primeiro boot, a configuração do jogo vive na VM.
+In practice: Terraform owns the **infrastructure**; from first boot onwards,
+game configuration lives on the VM.
 
-**A imagem base é buscada, não fixada.** `compute.tf` consulta a imagem Ubuntu
-ARM mais recente em vez de gravar um OCID na mão, porque esses IDs mudam a cada
-release. Como isso faria a VM ser recriada sempre que a Oracle publicasse uma
-imagem nova, há um `ignore_changes` no `source_id`. Atualize o SO por dentro,
-com `apt`.
+**The base image is looked up, not pinned.** `compute.tf` queries the newest
+Ubuntu ARM image rather than hardcoding an OCID, because those IDs change with
+every release. Since that would otherwise recreate the VM whenever Oracle
+publishes a new image, there is an `ignore_changes` on `source_id`. Patch the
+OS from the inside with `apt`.
 
 ## CI
 
-O workflow roda em todo push e pull request:
+The workflow runs on every push and pull request:
 
-- `terraform fmt -check -recursive` — formatação
-- `terraform init -backend=false` + `terraform validate` — sintaxe e tipos
-- `scripts/check-cloud-init.sh` — renderiza o template e garante que o
-  cloud-init e o `docker-compose.yml` embutido são YAML válidos, com os dois
-  serviços esperados
+- `terraform fmt -check -recursive` — formatting
+- `terraform init -backend=false` + `terraform validate` — syntax and types
+- `scripts/check-cloud-init.sh` — renders the template and asserts that the
+  cloud-init document and the embedded `docker-compose.yml` are valid YAML with
+  the expected services
 
-É validação apenas: nada de `apply` automático, porque isso exigiria as
-credenciais da OCI como secrets do repositório. O caminho natural para chegar
-lá é o primeiro item do roadmap.
+Validation only: there is no automatic `apply`, since that would require OCI
+credentials as repository secrets. Getting there is the first item on the
+roadmap.
 
-Para rodar os mesmos checks localmente:
+To run the same checks locally:
 
 ```bash
 cd terraform && terraform fmt -check -recursive && terraform validate
 ./scripts/check-cloud-init.sh
 ```
 
-## Problemas comuns
+## Troubleshooting
 
-| Sintoma | Causa provável |
+| Symptom | Likely cause |
 |---|---|
-| `Out of host capacity` | capacidade ARM esgotada. Veja a seção abaixo |
-| `404-NotAuthorizedOrNotFound` | OCID, fingerprint ou caminho da chave errados no `terraform.tfvars` |
-| SSH funciona, o jogo não conecta | firewall interno. Confira com `sudo iptables -L INPUT -n --line-numbers` |
-| `Connection refused` no cliente | o Paper ainda está baixando ou gerando o mundo. Veja `docker logs minecraft` |
-| Servidor engasgando com muita gente | aumente `java_memory` ou reduza `VIEW_DISTANCE` no compose |
+| `Out of host capacity` | free ARM capacity exhausted. See the section below |
+| `404-NotAuthorizedOrNotFound` | wrong OCID, fingerprint or key path in `terraform.tfvars` |
+| SSH works, the game does not connect | in-VM firewall. Check `sudo iptables -L INPUT -n --line-numbers` |
+| `Connection refused` in the client | Paper is still downloading or generating the world. Check `docker logs minecraft` |
+| Server stuttering with a full lobby | raise `java_memory` or lower `VIEW_DISTANCE` in the compose file |
 
-## Quando falta capacidade ARM
+## When ARM capacity runs out
 
-`Out of host capacity` é o obstáculo mais comum deste projeto, e **não é erro de
-configuração**: o pool gratuito de Ampere A1 da região está cheio. O `apply`
-cria a rede normalmente e falha só na instância, então basta reaplicar — nada
-precisa ser refeito.
+`Out of host capacity` is the most common obstacle in this project, and it is
+**not a configuration error**: the region's free Ampere A1 pool is full. The
+apply creates the network normally and fails only on the instance, so
+reapplying resumes from there — nothing has to be redone.
 
-A capacidade abre em janelas curtas, quando alguém destrói uma instância. Quem
-insiste, consegue:
+Capacity opens in short windows, whenever someone destroys an instance.
+Persistence pays off:
 
 ```bash
-./scripts/apply-retry.sh                 # tenta a cada 3 minutos, até conseguir
-INTERVAL=300 ./scripts/apply-retry.sh    # a cada 5 minutos
-MAX_TRIES=20 ./scripts/apply-retry.sh    # desiste depois de 20 tentativas
+./scripts/apply-retry.sh                 # retry every 3 minutes until it lands
+INTERVAL=300 ./scripts/apply-retry.sh    # every 5 minutes
+MAX_TRIES=20 ./scripts/apply-retry.sh    # give up after 20 attempts
 ```
 
-O script só repete quando o erro é de capacidade; qualquer outra falha ele
-mostra e interrompe.
+The script only retries on capacity errors; anything else it prints and stops.
 
-Se a espera se arrastar, três coisas aumentam a chance:
+If the wait drags on, three things improve the odds:
 
-1. **Peça menos.** Um pedido de 4 OCPUs e 24 GB precisa de um bloco grande
-   livre. Com `instance_ocpus = 2` e `instance_memory_gb = 12` a chance sobe
-   bastante, e ainda sobra máquina para uma dúzia de amigos (ajuste
-   `java_memory` para `8G` junto).
-2. **Troque de região.** `sa-vinhedo-1` é o outro datacenter brasileiro e tem
-   pool próprio. Mudar `region` recria tudo, mas a essa altura não há nada para
-   perder.
-3. **Saia do trial.** Contas em avaliação têm prioridade menor na fila de
-   capacidade. Fazer upgrade para Pay As You Go ajuda e mantém os recursos
-   Always Free gratuitos.
+1. **Ask for less.** Requesting 4 OCPUs and 24 GB needs one large free block.
+   With `instance_ocpus = 2` and `instance_memory_gb = 12` the odds go up
+   considerably, and it still comfortably hosts a dozen friends (drop
+   `java_memory` to `8G` alongside it).
+2. **Switch regions.** Each region has its own capacity pool. Changing `region`
+   recreates everything, but at this point there is nothing to lose.
+3. **Leave the trial.** Trial accounts sit lower in the capacity queue.
+   Upgrading to Pay As You Go helps and keeps Always Free resources free.
+
+Note that `availability_domain_index` only helps in regions with more than one
+availability domain — `sa-saopaulo-1`, for instance, has a single one.
 
 ## Roadmap
 
-- [ ] State remoto no OCI Object Storage + `apply` pelo CI com OIDC
-- [ ] Domínio próprio com registro SRV (dispensa a porta no endereço)
-- [ ] Geyser + Floodgate para deixar entrar jogadores do Bedrock
-- [ ] Envio dos backups para Object Storage com `rclone`
-- [ ] Métricas do servidor com Prometheus + Grafana
+- [ ] Remote state in OCI Object Storage + CI-driven `apply` via OIDC
+- [ ] Custom domain with an SRV record (drops the port from the address)
+- [ ] Geyser + Floodgate so Bedrock players can join
+- [ ] Ship backups to Object Storage with `rclone`
+- [ ] Server metrics with Prometheus + Grafana
 
-## Licença
+## License
 
 MIT.
