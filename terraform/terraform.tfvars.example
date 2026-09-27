@@ -1,0 +1,18 @@
+tenancy_ocid     = "ocid1.tenancy.oc1..xxxxxxxxxxxxxxxxxxxxxxxx"
+user_ocid        = "ocid1.user.oc1..xxxxxxxxxxxxxxxxxxxxxxxx"
+fingerprint      = "aa:bb:cc:dd:ee:ff:00:11:22:33:44:55:66:77:88:99"
+private_key_path = "~/.oci/oci_api_key.pem"
+region           = "sa-saopaulo-1"
+
+ssh_public_key   = "ssh-ed25519 AAAAC3NzaC1... voce@maquina"
+allowed_ssh_cidr = "0.0.0.0/0"
+
+motd        = "Servidor dos amigos"
+difficulty  = "normal"
+max_players = 20
+java_memory = "12G"
+
+ops       = ""
+whitelist = ""
+
+rcon_password = "troque-esta-senha"

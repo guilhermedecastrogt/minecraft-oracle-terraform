@@ -1,0 +1,10 @@
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+.terraform/
+crash.log
+*.pem
+
+# terraform provider cache
+terraform/.terraform/
