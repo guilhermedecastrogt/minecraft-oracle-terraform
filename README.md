@@ -43,7 +43,9 @@ disco, sem prazo para expirar. O projeto usa exatamente esse teto.
 ```
 .
 ├── .github/workflows/terraform.yml   CI: fmt, validate e lint do cloud-init
-├── scripts/check-cloud-init.sh       renderiza o template e valida o YAML
+├── scripts/
+│   ├── check-cloud-init.sh           renderiza o template e valida o YAML
+│   └── apply-retry.sh                reaplica até haver capacidade ARM livre
 └── terraform/
     ├── versions.tf                   versões do Terraform e do provider
     ├── providers.tf                  autenticação na OCI
@@ -94,7 +96,7 @@ No `terraform.tfvars`, além das credenciais, vale ajustar:
 | `whitelist` | vazio | preencher liga a whitelist automaticamente |
 | `java_memory` | `12G` | heap da JVM; deixe folga para SO e Docker |
 | `difficulty` / `max_players` / `motd` | `normal` / `20` / — | ajustes do jogo |
-| `availability_domain_index` | `0` | troque para 1 ou 2 se faltar capacidade ARM |
+| `availability_domain_index` | `0` | só útil em regiões com mais de um AD (São Paulo tem apenas um) |
 
 Ao fim do apply:
 
@@ -216,11 +218,43 @@ cd terraform && terraform fmt -check -recursive && terraform validate
 
 | Sintoma | Causa provável |
 |---|---|
-| `Out of host capacity` | capacidade ARM esgotada naquele AD. Troque `availability_domain_index`, mude de `region` ou tente de novo mais tarde |
+| `Out of host capacity` | capacidade ARM esgotada. Veja a seção abaixo |
 | `404-NotAuthorizedOrNotFound` | OCID, fingerprint ou caminho da chave errados no `terraform.tfvars` |
 | SSH funciona, o jogo não conecta | firewall interno. Confira com `sudo iptables -L INPUT -n --line-numbers` |
 | `Connection refused` no cliente | o Paper ainda está baixando ou gerando o mundo. Veja `docker logs minecraft` |
 | Servidor engasgando com muita gente | aumente `java_memory` ou reduza `VIEW_DISTANCE` no compose |
+
+## Quando falta capacidade ARM
+
+`Out of host capacity` é o obstáculo mais comum deste projeto, e **não é erro de
+configuração**: o pool gratuito de Ampere A1 da região está cheio. O `apply`
+cria a rede normalmente e falha só na instância, então basta reaplicar — nada
+precisa ser refeito.
+
+A capacidade abre em janelas curtas, quando alguém destrói uma instância. Quem
+insiste, consegue:
+
+```bash
+./scripts/apply-retry.sh                 # tenta a cada 3 minutos, até conseguir
+INTERVAL=300 ./scripts/apply-retry.sh    # a cada 5 minutos
+MAX_TRIES=20 ./scripts/apply-retry.sh    # desiste depois de 20 tentativas
+```
+
+O script só repete quando o erro é de capacidade; qualquer outra falha ele
+mostra e interrompe.
+
+Se a espera se arrastar, três coisas aumentam a chance:
+
+1. **Peça menos.** Um pedido de 4 OCPUs e 24 GB precisa de um bloco grande
+   livre. Com `instance_ocpus = 2` e `instance_memory_gb = 12` a chance sobe
+   bastante, e ainda sobra máquina para uma dúzia de amigos (ajuste
+   `java_memory` para `8G` junto).
+2. **Troque de região.** `sa-vinhedo-1` é o outro datacenter brasileiro e tem
+   pool próprio. Mudar `region` recria tudo, mas a essa altura não há nada para
+   perder.
+3. **Saia do trial.** Contas em avaliação têm prioridade menor na fila de
+   capacidade. Fazer upgrade para Pay As You Go ajuda e mantém os recursos
+   Always Free gratuitos.
 
 ## Roadmap
 
