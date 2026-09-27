@@ -17,3 +17,6 @@ ops       = ""
 whitelist = ""
 
 rcon_password = "change-this-password"
+
+budget_alert_email = "you@example.com"
+budget_amount      = 1

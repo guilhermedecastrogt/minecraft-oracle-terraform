@@ -143,3 +143,15 @@ variable "rcon_password" {
   default     = "change-this-password"
   sensitive   = true
 }
+
+variable "budget_alert_email" {
+  description = "Email notified when spend reaches the budget. Empty disables the budget entirely."
+  type        = string
+  default     = ""
+}
+
+variable "budget_amount" {
+  description = "Monthly budget in USD. Kept at 1 on purpose: this deployment should never be billed."
+  type        = number
+  default     = 1
+}

@@ -1,0 +1,23 @@
+resource "oci_budget_budget" "cost_guard" {
+  count = var.budget_alert_email != "" ? 1 : 0
+
+  compartment_id = var.tenancy_ocid
+  targets        = [local.compartment_id]
+  target_type    = "COMPARTMENT"
+  amount         = var.budget_amount
+  reset_period   = "MONTHLY"
+  display_name   = "${var.instance_name}-cost-guard"
+  description    = "Tripwire: everything here should stay inside Always Free, so any spend at all is a signal."
+}
+
+resource "oci_budget_alert_rule" "cost_guard" {
+  count = var.budget_alert_email != "" ? 1 : 0
+
+  budget_id      = oci_budget_budget.cost_guard[0].id
+  display_name   = "${var.instance_name}-cost-guard-actual"
+  type           = "ACTUAL"
+  threshold      = 100
+  threshold_type = "PERCENTAGE"
+  recipients     = var.budget_alert_email
+  message        = "Oracle Cloud spend reached the budget. Something left the Always Free tier."
+}

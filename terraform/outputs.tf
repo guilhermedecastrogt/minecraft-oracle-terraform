@@ -22,3 +22,8 @@ output "cloud_init_log" {
   description = "Command to follow first-boot provisioning."
   value       = "ssh ubuntu@${oci_core_instance.mc.public_ip} 'sudo tail -f /var/log/cloud-init-output.log'"
 }
+
+output "budget" {
+  description = "Monthly budget guarding against accidental spend, when enabled."
+  value       = var.budget_alert_email != "" ? "USD ${var.budget_amount}/month, alerting ${var.budget_alert_email} at 100%" : "disabled (set budget_alert_email to enable)"
+}

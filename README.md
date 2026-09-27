@@ -34,7 +34,9 @@ terraform apply
 ```
 
 **Cost: $0** within Always Free — 4 ARM OCPUs, 24 GB of RAM and 200 GB of disk,
-with no expiry date. This project uses exactly that budget.
+with no expiry date. This project uses exactly that budget, and ships an
+optional OCI budget alert as a tripwire in case anything ever leaves the free
+tier.
 
 ---
 
@@ -52,6 +54,7 @@ with no expiry date. This project uses exactly that budget.
     ├── variables.tf                  every knob the project exposes
     ├── network.tf                    VCN, IGW, route table, security list, subnet
     ├── compute.tf                    Ubuntu ARM image lookup + A1.Flex instance
+    ├── budget.tf                     spend tripwire (optional)
     ├── outputs.tf                    IP and ready-to-run commands after apply
     ├── templates/
     │   └── cloud-init.yaml.tftpl     what runs on the VM's first boot
@@ -97,6 +100,7 @@ Beyond the credentials, these are the settings worth reviewing:
 | `java_memory` | `12G` | JVM heap; leave headroom for the OS and Docker |
 | `difficulty` / `max_players` / `motd` | `normal` / `20` / — | gameplay settings |
 | `timezone` | `America/Sao_Paulo` | affects container logs and backup scheduling |
+| `budget_alert_email` | empty | email for the spend alert; empty disables the budget |
 
 After the apply:
 
@@ -164,6 +168,26 @@ scp ubuntu@<IP>:/opt/minecraft/backups/*.tgz .
 ```bash
 terraform destroy
 ```
+
+## Cost guardrail
+
+Everything here is designed to sit inside Always Free, so **any spend at all is
+a bug**, not a cost to optimize. `budget.tf` encodes that: a USD 1 monthly
+budget with an alert at 100%, which in practice fires on the first cent.
+
+```hcl
+budget_alert_email = "you@example.com"
+```
+
+Leave it empty and no budget is created — the `count` on both resources drops
+to zero. The budget itself lives in the tenancy root, which is where OCI
+requires budgets to be created, and targets the compartment this project
+deploys into.
+
+This matters most on **Pay As You Go** accounts. A trial account simply refuses
+to create anything beyond the free quota; a PAYG account happily creates it and
+charges the card. The budget is what turns that silent failure mode into an
+email.
 
 ## How the pieces fit together
 
@@ -249,13 +273,19 @@ If the wait drags on, three things improve the odds:
    With `instance_ocpus = 2` and `instance_memory_gb = 12` the odds go up
    considerably, and it still comfortably hosts a dozen friends (drop
    `java_memory` to `8G` alongside it).
-2. **Switch regions.** Each region has its own capacity pool. Changing `region`
-   recreates everything, but at this point there is nothing to lose.
+2. **Switch regions — but check your home region first.** Always Free resources
+   can only be created in the tenancy's **home region**, which is fixed when the
+   account is created. Deploying to any other region works, but it is billed.
+   Check yours under Governance → Tenancy details before changing `region`.
 3. **Leave the trial.** Trial accounts sit lower in the capacity queue.
    Upgrading to Pay As You Go helps and keeps Always Free resources free.
 
 Note that `availability_domain_index` only helps in regions with more than one
 availability domain — `sa-saopaulo-1`, for instance, has a single one.
+
+If you are stuck, the single most effective move is usually the upgrade to Pay
+As You Go: trial accounts sit lower in the ARM capacity queue, and the upgrade
+keeps Always Free resources free. Pair it with the budget above.
 
 ## Roadmap
 
