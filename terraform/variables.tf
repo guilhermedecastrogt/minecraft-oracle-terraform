@@ -155,3 +155,21 @@ variable "budget_amount" {
   type        = number
   default     = 1
 }
+
+variable "server_type" {
+  description = "Server flavour passed to itzg/minecraft-server: PAPER, VANILLA, FABRIC, FORGE..."
+  type        = string
+  default     = "PAPER"
+}
+
+variable "view_distance" {
+  description = "Chunk render distance. The single biggest CPU and memory lever on small instances."
+  type        = number
+  default     = 10
+}
+
+variable "simulation_distance" {
+  description = "Chunk distance where entities and redstone keep ticking. Lower it before view_distance."
+  type        = number
+  default     = 8
+}

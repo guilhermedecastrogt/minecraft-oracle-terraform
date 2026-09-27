@@ -3,7 +3,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/../terraform"
 
-EXPR='templatefile("${path.module}/templates/cloud-init.yaml.tftpl", {minecraft_port=25565, minecraft_version="LATEST", java_memory="12G", motd="ci", difficulty="normal", max_players=20, ops="", whitelist="", enforce_whitelist="false", timezone="UTC", rcon_password="ci"})'
+EXPR='templatefile("${path.module}/templates/cloud-init.yaml.tftpl", {minecraft_port=25565, minecraft_version="LATEST", java_memory="12G", motd="ci", difficulty="normal", max_players=20, ops="", whitelist="", enforce_whitelist="false", timezone="UTC", server_type="PAPER", view_distance=10, simulation_distance=8, rcon_password="ci"})'
 
 terraform init -backend=false -input=false >/dev/null
 

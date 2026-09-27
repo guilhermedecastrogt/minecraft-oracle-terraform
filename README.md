@@ -100,6 +100,8 @@ Beyond the credentials, these are the settings worth reviewing:
 | `java_memory` | `12G` | JVM heap; leave headroom for the OS and Docker |
 | `difficulty` / `max_players` / `motd` | `normal` / `20` / — | gameplay settings |
 | `timezone` | `America/Sao_Paulo` | affects container logs and backup scheduling |
+| `server_type` | `PAPER` | `VANILLA`, `FABRIC`, `FORGE`... anything itzg/minecraft-server accepts |
+| `view_distance` / `simulation_distance` | `10` / `8` | the biggest CPU levers on small instances |
 | `budget_alert_email` | empty | email for the spend alert; empty disables the budget |
 
 After the apply:
@@ -247,7 +249,7 @@ cd terraform && terraform fmt -check -recursive && terraform validate
 | `404-NotAuthorizedOrNotFound` | wrong OCID, fingerprint or key path in `terraform.tfvars` |
 | SSH works, the game does not connect | in-VM firewall. Check `sudo iptables -L INPUT -n --line-numbers` |
 | `Connection refused` in the client | Paper is still downloading or generating the world. Check `docker logs minecraft` |
-| Server stuttering with a full lobby | raise `java_memory` or lower `VIEW_DISTANCE` in the compose file |
+| Server stuttering with a full lobby | raise `java_memory`, or lower `view_distance` and `simulation_distance` |
 
 ## When ARM capacity runs out
 
@@ -270,9 +272,17 @@ The script only retries on capacity errors; anything else it prints and stops.
 If the wait drags on, three things improve the odds:
 
 1. **Ask for less.** Requesting 4 OCPUs and 24 GB needs one large free block.
-   With `instance_ocpus = 2` and `instance_memory_gb = 12` the odds go up
-   considerably, and it still comfortably hosts a dozen friends (drop
-   `java_memory` to `8G` alongside it).
+   Smaller requests are far easier to place, and a handful of players needs
+   surprisingly little:
+
+   | Players | `instance_ocpus` | `instance_memory_gb` | `java_memory` | `view_distance` |
+   |---|---|---|---|---|
+   | up to 5 | 1 | 6 | `4G` | 8 |
+   | up to 12 | 2 | 12 | `8G` | 10 |
+   | 12+ | 4 | 24 | `12G` | 12 |
+
+   Minecraft's tick loop is essentially single-threaded, so extra cores buy
+   less than you would expect — render distance and heap matter more.
 2. **Switch regions — but check your home region first.** Always Free resources
    can only be created in the tenancy's **home region**, which is fixed when the
    account is created. Deploying to any other region works, but it is billed.
