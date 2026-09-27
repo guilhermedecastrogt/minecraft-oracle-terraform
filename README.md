@@ -1,6 +1,6 @@
 # Pterodactyl on Oracle Cloud with Terraform
 
-[![terraform](https://github.com/guilhermedecastrogt/minecraft-oracle-terraform/actions/workflows/terraform.yml/badge.svg)](https://github.com/guilhermedecastrogt/minecraft-oracle-terraform/actions/workflows/terraform.yml)
+[![terraform](https://github.com/guilhermedecastrogt/pterodactyl-oracle-terraform/actions/workflows/terraform.yml/badge.svg)](https://github.com/guilhermedecastrogt/pterodactyl-oracle-terraform/actions/workflows/terraform.yml)
 
 Infrastructure as code for running a full **Pterodactyl** game-server panel on
 an ARM VM in Oracle Cloud's **Always Free** tier. One `terraform apply` creates
