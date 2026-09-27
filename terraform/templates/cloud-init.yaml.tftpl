@@ -8,79 +8,200 @@ packages:
   - curl
   - htop
   - unzip
+  - jq
 
 write_files:
-  - path: /opt/minecraft/docker-compose.yml
+  - path: /opt/pterodactyl/docker-compose.yml
     permissions: "0644"
     content: |
+      x-common:
+        database: &db-env
+          MYSQL_PASSWORD: &db-password "${db_password}"
+          MYSQL_ROOT_PASSWORD: "${db_root_password}"
+
       services:
-        mc:
-          image: itzg/minecraft-server:java21
-          container_name: minecraft
-          restart: unless-stopped
-          tty: true
-          stdin_open: true
-          ports:
-            - "${minecraft_port}:25565"
+        database:
+          image: mariadb:11
+          container_name: panel-database
+          restart: always
+          command: --default-authentication-plugin=mysql_native_password
           environment:
-            EULA: "TRUE"
-            TYPE: "${server_type}"
-            VERSION: "${minecraft_version}"
-            MEMORY: "${java_memory}"
-            USE_AIKAR_FLAGS: "true"
-            TZ: "${timezone}"
-            MOTD: "${motd}"
-            DIFFICULTY: "${difficulty}"
-            MAX_PLAYERS: "${max_players}"
-            VIEW_DISTANCE: "${view_distance}"
-            SIMULATION_DISTANCE: "${simulation_distance}"
-            OPS: "${ops}"
-            WHITELIST: "${whitelist}"
-            ENFORCE_WHITELIST: "${enforce_whitelist}"
-            ENABLE_RCON: "true"
-            RCON_PASSWORD: "${rcon_password}"
+            <<: *db-env
+            MYSQL_DATABASE: panel
+            MYSQL_USER: pterodactyl
           volumes:
-            - ./data:/data
+            - ./data/database:/var/lib/mysql
           healthcheck:
-            test: ["CMD", "mc-health"]
-            start_period: 2m
-            interval: 30s
-            retries: 10
+            test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+            interval: 10s
+            retries: 20
 
-        backup:
-          image: itzg/mc-backup
-          container_name: minecraft-backup
-          restart: unless-stopped
+        cache:
+          image: redis:7-alpine
+          container_name: panel-cache
+          restart: always
+
+        panel:
+          image: ghcr.io/pterodactyl/panel:latest
+          container_name: panel
+          restart: always
           depends_on:
-            - mc
+            database:
+              condition: service_healthy
+            cache:
+              condition: service_started
           environment:
-            BACKUP_INTERVAL: "6h"
-            PRUNE_BACKUPS_DAYS: "7"
-            RCON_HOST: "mc"
-            RCON_PASSWORD: "${rcon_password}"
-            TZ: "${timezone}"
+            APP_URL: "https://panel.$${BASE_DOMAIN}"
+            APP_KEY: "${app_key}"
+            APP_ENV: production
+            APP_DEBUG: "false"
+            APP_ENVIRONMENT_ONLY: "false"
+            APP_TIMEZONE: "${timezone}"
+            TRUSTED_PROXIES: "*"
+            DB_HOST: database
+            DB_PORT: "3306"
+            DB_DATABASE: panel
+            DB_USERNAME: pterodactyl
+            DB_PASSWORD: *db-password
+            CACHE_DRIVER: redis
+            SESSION_DRIVER: redis
+            QUEUE_DRIVER: redis
+            REDIS_HOST: cache
+            MAIL_MAILER: log
           volumes:
-            - ./data:/data:ro
-            - ./backups:/backups
+            - ./data/panel/var:/app/var
+            - ./data/panel/logs:/app/storage/logs
+            - ./data/panel/nginx:/etc/nginx/http.d
 
-  - path: /etc/profile.d/minecraft.sh
+        wings:
+          image: ghcr.io/pterodactyl/wings:latest
+          container_name: wings
+          restart: always
+          tty: true
+          # Only SFTP is published here. Game ports belong to the containers
+          # Wings creates through the Docker socket, which bind the host
+          # directly: publishing the range twice would collide.
+          ports:
+            - "2022:2022"
+          environment:
+            TZ: "${timezone}"
+            WINGS_UID: "988"
+            WINGS_GID: "988"
+            WINGS_USERNAME: pterodactyl
+          volumes:
+            - /var/run/docker.sock:/var/run/docker.sock
+            - /var/lib/docker/containers:/var/lib/docker/containers
+            - /etc/pterodactyl:/etc/pterodactyl
+            - /var/lib/pterodactyl:/var/lib/pterodactyl
+            - /var/log/pterodactyl:/var/log/pterodactyl
+            - /tmp/pterodactyl:/tmp/pterodactyl
+            - /etc/ssl/certs:/etc/ssl/certs:ro
+
+        proxy:
+          image: caddy:2-alpine
+          container_name: panel-proxy
+          restart: always
+          depends_on:
+            - panel
+          ports:
+            - "80:80"
+            - "443:443"
+          volumes:
+            - ./Caddyfile:/etc/caddy/Caddyfile:ro
+            - ./data/caddy:/data
+
+  - path: /opt/pterodactyl/bootstrap.sh
+    permissions: "0755"
+    content: |
+      #!/usr/bin/env bash
+      # Runs once at first boot, and is safe to run again by hand.
+      set -euo pipefail
+
+      cd /opt/pterodactyl
+
+      # The public IP is only known after the VM exists, so resolve it here
+      # rather than in Terraform.
+      PUBLIC_IP=$(curl -s -H "Authorization: Bearer Oracle" \
+        http://169.254.169.254/opc/v2/vnics/ | jq -r '.[0].publicIp')
+
+      CONFIGURED_DOMAIN="${panel_domain}"
+      if [ -n "$${CONFIGURED_DOMAIN}" ]; then
+        BASE_DOMAIN="$${CONFIGURED_DOMAIN}"
+      else
+        # sslip.io resolves any name containing an IP straight back to it,
+        # which gives us real DNS (and therefore real certificates) with no
+        # domain to register.
+        BASE_DOMAIN="$${PUBLIC_IP}.sslip.io"
+      fi
+
+      echo "BASE_DOMAIN=$${BASE_DOMAIN}" > .env
+      echo "PUBLIC_IP=$${PUBLIC_IP}" >> .env
+
+      cat > Caddyfile <<EOF
+      {
+        email ${panel_admin_email}
+      }
+
+      panel.$${BASE_DOMAIN} {
+        reverse_proxy panel:80
+      }
+
+      node.$${BASE_DOMAIN} {
+        reverse_proxy wings:8080
+      }
+      EOF
+
+      mkdir -p data/panel/var data/panel/logs data/panel/nginx data/database data/caddy
+      mkdir -p /etc/pterodactyl /var/lib/pterodactyl /var/log/pterodactyl /tmp/pterodactyl
+
+      docker compose up -d
+
+      echo "waiting for the panel to finish migrating"
+      for _ in $(seq 1 60); do
+        if docker compose exec -T panel php artisan migrate:status >/dev/null 2>&1; then
+          break
+        fi
+        sleep 10
+      done
+
+      # p:user:make fails if the account already exists, which is fine on a re-run.
+      docker compose exec -T panel php artisan p:user:make \
+        --email="${panel_admin_email}" \
+        --username="${panel_admin_username}" \
+        --name-first="${panel_admin_first_name}" \
+        --name-last="${panel_admin_last_name}" \
+        --password="${panel_admin_password}" \
+        --admin=1 --no-interaction || true
+
+      docker compose exec -T panel php artisan p:location:make \
+        --short=oci --long="Oracle Cloud ${region}" --no-interaction || true
+
+      printf '\npanel ready at https://panel.%s\n' "$${BASE_DOMAIN}"
+
+  - path: /etc/profile.d/pterodactyl.sh
     permissions: "0644"
     content: |
-      alias mc-logs='docker logs -f --tail 100 minecraft'
-      alias mc-console='docker exec -i minecraft rcon-cli'
-      alias mc-restart='docker restart minecraft'
-      alias mc-up='docker compose -f /opt/minecraft/docker-compose.yml up -d'
-      alias mc-down='docker compose -f /opt/minecraft/docker-compose.yml down'
+      alias ptero='docker compose -f /opt/pterodactyl/docker-compose.yml'
+      alias ptero-logs='docker compose -f /opt/pterodactyl/docker-compose.yml logs -f --tail 100'
+      alias ptero-artisan='docker compose -f /opt/pterodactyl/docker-compose.yml exec panel php artisan'
+      alias wings-logs='docker logs -f --tail 100 wings'
 
 runcmd:
   - curl -fsSL https://get.docker.com -o /tmp/get-docker.sh
   - sh /tmp/get-docker.sh
   - systemctl enable --now docker
   - usermod -aG docker ubuntu
-  - iptables -I INPUT 1 -p tcp --dport ${minecraft_port} -m conntrack --ctstate NEW -j ACCEPT
+
+  # Oracle's Ubuntu image blocks everything except SSH, so the cloud-side
+  # security list is not enough on its own.
+  - iptables -I INPUT 1 -p tcp --dport 80 -m conntrack --ctstate NEW -j ACCEPT
+  - iptables -I INPUT 1 -p tcp --dport 443 -m conntrack --ctstate NEW -j ACCEPT
+  - iptables -I INPUT 1 -p tcp --dport 2022 -m conntrack --ctstate NEW -j ACCEPT
+  - iptables -I INPUT 1 -p tcp --dport ${game_port_min}:${game_port_max} -m conntrack --ctstate NEW -j ACCEPT
+  - iptables -I INPUT 1 -p udp --dport ${game_port_min}:${game_port_max} -j ACCEPT
   - netfilter-persistent save || iptables-save > /etc/iptables/rules.v4
-  - mkdir -p /opt/minecraft/data /opt/minecraft/backups
-  - chown -R ubuntu:ubuntu /opt/minecraft
-  - docker compose -f /opt/minecraft/docker-compose.yml up -d
+
+  - bash /opt/pterodactyl/bootstrap.sh
+  - chown -R ubuntu:ubuntu /opt/pterodactyl
 
 final_message: "Provisioning finished after $UPTIME seconds."

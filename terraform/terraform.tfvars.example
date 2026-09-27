@@ -7,16 +7,15 @@ region           = "sa-saopaulo-1"
 ssh_public_key   = "ssh-ed25519 AAAAC3NzaC1... you@machine"
 allowed_ssh_cidr = "0.0.0.0/0"
 
-motd        = "Paper server on Oracle Cloud"
-difficulty  = "normal"
-max_players = 20
-java_memory = "12G"
-timezone    = "America/Sao_Paulo"
+instance_ocpus     = 2
+instance_memory_gb = 12
+boot_volume_gb     = 100
 
-ops       = ""
-whitelist = ""
+panel_admin_email    = "you@example.com"
+panel_admin_username = "admin"
 
-rcon_password = "change-this-password"
+# Leave empty to serve the panel over sslip.io, which needs no DNS setup.
+panel_domain = ""
 
 budget_alert_email = "you@example.com"
 budget_amount      = 1

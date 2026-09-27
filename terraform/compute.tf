@@ -49,20 +49,19 @@ resource "oci_core_instance" "mc" {
     ssh_authorized_keys = var.ssh_public_key
 
     user_data = base64encode(templatefile("${path.module}/templates/cloud-init.yaml.tftpl", {
-      minecraft_port      = var.minecraft_port
-      minecraft_version   = var.minecraft_version
-      java_memory         = var.java_memory
-      motd                = var.motd
-      difficulty          = var.difficulty
-      max_players         = var.max_players
-      timezone            = var.timezone
-      server_type         = var.server_type
-      view_distance       = var.view_distance
-      simulation_distance = var.simulation_distance
-      ops                 = var.ops
-      whitelist           = var.whitelist
-      enforce_whitelist   = var.whitelist != "" ? "true" : "false"
-      rcon_password       = var.rcon_password
+      timezone               = var.timezone
+      region                 = var.region
+      panel_domain           = var.panel_domain
+      panel_admin_email      = var.panel_admin_email
+      panel_admin_username   = var.panel_admin_username
+      panel_admin_first_name = var.panel_admin_first_name
+      panel_admin_last_name  = var.panel_admin_last_name
+      panel_admin_password   = local.panel_admin_password
+      app_key                = local.app_key
+      db_root_password       = random_password.db_root.result
+      db_password            = random_password.db_user.result
+      game_port_min          = var.game_port_min
+      game_port_max          = var.game_port_max
     }))
   }
 

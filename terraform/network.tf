@@ -51,11 +51,59 @@ resource "oci_core_security_list" "mc" {
     source      = "0.0.0.0/0"
     source_type = "CIDR_BLOCK"
     protocol    = "6"
-    description = "Minecraft Java"
+    description = "HTTP (Let's Encrypt challenge and redirect)"
 
     tcp_options {
-      min = var.minecraft_port
-      max = var.minecraft_port
+      min = 80
+      max = 80
+    }
+  }
+
+  ingress_security_rules {
+    source      = "0.0.0.0/0"
+    source_type = "CIDR_BLOCK"
+    protocol    = "6"
+    description = "HTTPS (panel and daemon)"
+
+    tcp_options {
+      min = 443
+      max = 443
+    }
+  }
+
+  ingress_security_rules {
+    source      = "0.0.0.0/0"
+    source_type = "CIDR_BLOCK"
+    protocol    = "6"
+    description = "Wings SFTP"
+
+    tcp_options {
+      min = 2022
+      max = 2022
+    }
+  }
+
+  ingress_security_rules {
+    source      = "0.0.0.0/0"
+    source_type = "CIDR_BLOCK"
+    protocol    = "6"
+    description = "Game servers (TCP)"
+
+    tcp_options {
+      min = var.game_port_min
+      max = var.game_port_max
+    }
+  }
+
+  ingress_security_rules {
+    source      = "0.0.0.0/0"
+    source_type = "CIDR_BLOCK"
+    protocol    = "17"
+    description = "Game servers (UDP)"
+
+    udp_options {
+      min = var.game_port_min
+      max = var.game_port_max
     }
   }
 
