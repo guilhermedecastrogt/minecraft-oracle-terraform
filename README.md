@@ -264,10 +264,18 @@ A1 pool is full. The apply creates everything else and fails only on the
 instance, so reapplying resumes from there.
 
 ```bash
-./scripts/apply-retry.sh                 # retry every 3 minutes
-INTERVAL=300 ./scripts/apply-retry.sh    # every 5 minutes
-MAX_TRIES=20 ./scripts/apply-retry.sh    # give up after 20 attempts
+./scripts/apply-retry.sh                            # retry every 3 minutes
+INTERVAL=300 ./scripts/apply-retry.sh               # every 5 minutes
+MAX_TRIES=20 ./scripts/apply-retry.sh               # give up after 20 attempts
+LOG_FILE=~/retry.log ./scripts/apply-retry.sh       # also append to a file
+caffeinate -i ./scripts/apply-retry.sh              # macOS: keep the machine awake
 ```
+
+The script sorts failures into three buckets. Capacity errors retry forever.
+Transient ones — DNS blips, dropped connections, throttling, Oracle 5xx — also
+retry, but a streak of `MAX_TRANSIENT` (default 20) in a row aborts, so a
+genuinely broken network does not spin silently. Anything else stops
+immediately and prints the error.
 
 Three things improve the odds:
 
