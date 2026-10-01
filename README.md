@@ -55,7 +55,7 @@ tripwire in case anything ever leaves the free tier.
     ├── secrets.tf                    generated DB, app and admin credentials
     ├── network.tf                    VCN, IGW, route table, security list, subnet
     ├── compute.tf                    Ubuntu ARM image lookup + A1.Flex instance
-    ├── budget.tf                     spend tripwire (optional)
+    ├── budget.tf                     spend tripwire (required)
     ├── outputs.tf                    panel URL and credentials after apply
     ├── templates/
     │   └── cloud-init.yaml.tftpl     the whole stack, written at first boot
@@ -222,14 +222,16 @@ Ubuntu ARM image instead of hardcoding an OCID. An `ignore_changes` on
 ## Cost guardrail
 
 Everything here is meant to sit inside Always Free, so **any spend at all is a
-bug**. `budget.tf` encodes that as a USD 1 monthly budget alerting at 100%,
-which in practice fires on the first cent.
+bug**. `budget.tf` encodes that as a USD 1 monthly budget alerting at 1% of
+actual spend, so it fires on the first cent, plus a forecast alert that warns
+when Oracle projects the month ending above the budget.
 
 ```hcl
 budget_alert_email = "you@example.com"
 ```
 
-Leave it empty and no budget is created. This matters most on **Pay As You Go**
+`budget_alert_email` is required: Terraform refuses to plan without it, so the
+budget is always created. This matters most on **Pay As You Go**
 accounts: a trial account refuses to exceed the free quota, while a PAYG
 account happily does and charges the card.
 

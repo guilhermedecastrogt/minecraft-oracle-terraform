@@ -37,6 +37,8 @@ resource "oci_core_instance" "mc" {
     source_type             = "image"
     source_id               = data.oci_core_images.ubuntu.images[0].id
     boot_volume_size_in_gbs = var.boot_volume_gb
+    # 10 VPUs/GB = "Balanced", the only performance level covered by Always Free.
+    boot_volume_vpus_per_gb = 10
   }
 
   create_vnic_details {

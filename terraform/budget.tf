@@ -16,8 +16,22 @@ resource "oci_budget_alert_rule" "cost_guard" {
   budget_id      = oci_budget_budget.cost_guard[0].id
   display_name   = "${var.instance_name}-cost-guard-actual"
   type           = "ACTUAL"
+  threshold      = 1
+  threshold_type = "PERCENTAGE"
+  recipients     = var.budget_alert_email
+  message        = "Oracle Cloud registered real spend. Something left the Always Free tier."
+}
+
+# Warns before the money is spent: fires when Oracle forecasts the month
+# will end above the budget, not only after the spend has happened.
+resource "oci_budget_alert_rule" "cost_guard_forecast" {
+  count = var.budget_alert_email != "" ? 1 : 0
+
+  budget_id      = oci_budget_budget.cost_guard[0].id
+  display_name   = "${var.instance_name}-cost-guard-forecast"
+  type           = "FORECAST"
   threshold      = 100
   threshold_type = "PERCENTAGE"
   recipients     = var.budget_alert_email
-  message        = "Oracle Cloud spend reached the budget. Something left the Always Free tier."
+  message        = "Oracle Cloud forecasts spend above the budget this month. Something is leaving the Always Free tier."
 }

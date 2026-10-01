@@ -23,6 +23,11 @@ variable "region" {
   description = "OCI region to deploy into. Always Free only works in the tenancy home region."
   type        = string
   default     = "sa-saopaulo-1"
+
+  validation {
+    condition     = var.region == "sa-saopaulo-1"
+    error_message = "This tenancy's home region is sa-saopaulo-1. Always Free resources only exist there."
+  }
 }
 
 variable "compartment_ocid" {
@@ -52,18 +57,33 @@ variable "instance_ocpus" {
   description = "ARM cores (Ampere A1). Always Free cap: 4."
   type        = number
   default     = 2
+
+  validation {
+    condition     = var.instance_ocpus >= 1 && var.instance_ocpus <= 4
+    error_message = "Always Free allows at most 4 Ampere A1 OCPUs in total. More than that is billed."
+  }
 }
 
 variable "instance_memory_gb" {
   description = "Memory in GB. Always Free cap: 24. The panel stack itself needs about 1.5."
   type        = number
   default     = 12
+
+  validation {
+    condition     = var.instance_memory_gb >= 1 && var.instance_memory_gb <= 24
+    error_message = "Always Free allows at most 24 GB of Ampere A1 memory in total. More than that is billed."
+  }
 }
 
 variable "boot_volume_gb" {
   description = "Disk size in GB. Always Free grants 200 GB total; minimum per VM is 50."
   type        = number
   default     = 100
+
+  validation {
+    condition     = var.boot_volume_gb >= 50 && var.boot_volume_gb <= 200
+    error_message = "Always Free block storage is 200 GB in total (boot volumes included). More than that is billed."
+  }
 }
 
 variable "ubuntu_version" {
@@ -138,13 +158,22 @@ variable "game_port_max" {
 }
 
 variable "budget_alert_email" {
-  description = "Email notified when spend reaches the budget. Empty disables the budget."
+  description = "Email notified when spend reaches the budget. Required: the budget is the safety net."
   type        = string
-  default     = ""
+
+  validation {
+    condition     = can(regex("^[^@ ]+@[^@ ]+$", var.budget_alert_email))
+    error_message = "Set budget_alert_email so the 1 USD spend alert is always created."
+  }
 }
 
 variable "budget_amount" {
   description = "Monthly budget in USD. Kept at 1 on purpose: this deployment should never be billed."
   type        = number
   default     = 1
+
+  validation {
+    condition     = var.budget_amount > 0 && var.budget_amount <= 5
+    error_message = "Keep the budget tiny (1 to 5 USD) so any spend at all triggers the alert."
+  }
 }
